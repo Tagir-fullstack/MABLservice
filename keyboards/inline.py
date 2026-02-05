@@ -61,19 +61,19 @@ def inline_keyboard_find_by_id():
 
     return keyboard
 
-def inline_keyboard_find_by_back():
+def inline_keyboard_verify_by():
     builder = InlineKeyboardBuilder()
-    builder.button(text='Назад', callback_data='History')
+    builder.button(text='По имени', callback_data='verify_by_name')
+    builder.button(text='По номеру', callback_data='verify_by_phone')
     builder.adjust(1)
 
     keyboard = builder.as_markup()
 
     return keyboard
 
-def inline_keyboard_verify_by():
+def inline_keyboard_find_by_back():
     builder = InlineKeyboardBuilder()
-    builder.button(text='По имени', callback_data='verify_by_name')
-    builder.button(text='По номеру', callback_data='verify_by_phone')
+    builder.button(text='Назад', callback_data='History')
     builder.adjust(1)
 
     keyboard = builder.as_markup()

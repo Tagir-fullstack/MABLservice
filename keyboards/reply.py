@@ -5,11 +5,11 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 def reply_keyboard_end_order():
     builder = ReplyKeyboardBuilder()
-    builder.button(text='В работе', callback_data='In_process')
-    builder.button(text='В ожидании деталей', callback_data='Waiting_for_detail')
-    builder.button(text='Успешно завершён', callback_data='Success')
-    builder.button(text='Не подлежит ремонту', callback_data='Not_repairable')
-    builder.button(text='Отказ клиентом', callback_data='Refused')
+    builder.button(text='В работе')
+    builder.button(text='В ожидании деталей')
+    builder.button(text='Успешно завершён')
+    builder.button(text='Не подлежит ремонту')
+    builder.button(text='Отказ клиентом')
     builder.adjust(1)
 
     # Исправлено: было 'Выберите дейтсвие' (опечатка), стало 'Выберите действие'
@@ -22,9 +22,9 @@ def reply_keyboard_end_order():
 
 def reply_keyboard_history():
     builder = ReplyKeyboardBuilder()
-    builder.button(text='Найти по номеру заказа', callback_data='find_by_id')
-    builder.button(text='Найти по имени клиента', callback_data='find_by_name')
-    builder.button(text='Найти по названию устройства', callback_data='find_by_device')
+    builder.button(text='Найти по номеру заказа')
+    builder.button(text='Найти по имени клиента')
+    builder.button(text='Найти по названию устройства')
     builder.adjust(1)
 
     keyboard = builder.as_markup()
@@ -34,9 +34,9 @@ def reply_keyboard_history():
 
 def reply_keyboard_status():
     builder = ReplyKeyboardBuilder()
-    builder.button(text='В работе', callback_data='In_process')
-    builder.button(text='В ожидании деталей', callback_data='Waiting_for_detail')
-    builder.button(text='Выполнен на месте', callback_data='Done')
+    builder.button(text='В работе')
+    builder.button(text='В ожидании деталей')
+    builder.button(text='Выполнен на месте')
     builder.adjust(1)
 
     # Исправлено: было 'Выберите дейтсвие' (опечатка), стало 'Выберите действие'

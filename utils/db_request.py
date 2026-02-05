@@ -9,7 +9,7 @@ class Request:
     def __init__(self, connector: AsyncConnection):
         self.connector = connector
 
-    async def add_data(self, name: str, phone: str, device: str, problem: str, status: str):
+    async def add_data(self, name: str, phone: str, device: str, problem: str, status: str) -> int:
         query = """
             INSERT INTO orders (name, phone, device, problem, status)
             VALUES (%s, %s, %s, %s, %s)
@@ -17,8 +17,25 @@ class Request:
         """
         async with self.connector.cursor() as cursor:
             await cursor.execute(query, (name, phone, device, problem, status))
+            row = await cursor.fetchone()
+            await self.connector.commit()
+            return row[0]
+
+
+    async def add_old_order(self, id: int, name: str, phone: str, device: str, problem: str, status: str):
+        query = """
+            INSERT INTO orders (id, name, phone, device, problem, status)
+            VALUES (%s, %s, %s, %s, %s, %s);
+        """
+        async with self.connector.cursor() as cursor:
+            await cursor.execute(query, (id, name, phone, device, problem, status))
             await self.connector.commit()
 
+    async def sync_order_sequence(self):
+        query = "SELECT setval('orders_id_seq', (SELECT MAX(id) FROM orders))"
+        async with self.connector.cursor() as cursor:
+            await cursor.execute(query)
+            await self.connector.commit()
 
     async def get_order(self, id: int):
         query = "SELECT id, name, phone, device, problem, status, created_at FROM orders WHERE id = %s ORDER BY created_at"
@@ -66,7 +83,7 @@ class Request:
             return orders
 
 
-    async def get_order_by_phone(self, phone_suffix: int):
+    async def get_order_by_phone(self, phone_suffix: str):
         query = """SELECT id, name, device, to_char(created_at, 'DD.MM.YY HH24:MI') as created_at 
                    FROM orders 
                    WHERE phone LIKE %s 

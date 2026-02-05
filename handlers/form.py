@@ -1,9 +1,8 @@
-# from Cython.Runtime.refnanny import FinishContext
 from aiogram import Bot, F, Router
 from aiogram.filters import CommandStart, StateFilter, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
-from fsm.steps import AddData, EditData, FinishOrder, OrderHistory, ClientSteps
+from fsm.steps import AddData, EditData, FinishOrder, OrderHistory, ClientSteps, AddOldOrder
 from config import ADMIN_ID, GROUP_ID
 from keyboards.reply import reply_keyboard_status, reply_keyboard_end_order
 from keyboards.inline import    inline_keyboard_start, inline_keyboard_edit_data, \
@@ -86,6 +85,7 @@ async def client_name_v(message: Message, state: FSMContext, request: Request):
             f"Устройство:    <b>{id['device']}</b>\n"
             f"Статус заказа:   <b>{id['status']}</b>\n"
         )
+        await state.clear()
 
     else:
         await message.answer(f"Имя клиента не соответствует указанной в номере заказа. Попробуйте снова", reply_markup=inline_keyboard_verify_by())
@@ -93,7 +93,7 @@ async def client_name_v(message: Message, state: FSMContext, request: Request):
 
 
 @router.callback_query(F.data == 'verify_by_phone')
-async def client_verify_by_name(call: CallbackQuery, state: FSMContext):
+async def client_verify_by_phone(call: CallbackQuery, state: FSMContext):
     await call.answer()
     await call.message.edit_text(f'Введите последние 5 цифр вашего мобильного номера')
     await state.set_state(ClientSteps.GET_PHONE)
@@ -112,26 +112,11 @@ async def client_phone_v(message: Message, state: FSMContext, request: Request):
             f"Устройство:    <b>{id['device']}</b>\n"
             f"Статус заказа:   <b>{id['status']}</b>\n"
         )
+        await state.clear()
 
     else:
         await message.answer(f"Номер телефона не соответствует указанной в номере заказа. Попробуйте снова", reply_markup=inline_keyboard_verify_by())
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        await state.clear()
 
 
 #######################################################################################################################
@@ -183,10 +168,9 @@ async def get_comments(message: Message, state: FSMContext):
 
 
 @router.message(StateFilter(AddData.GET_COMMENTS))
-async def get_status(message: Message, bot: Bot, state: FSMContext, request: Request):
+async def get_created_status(message: Message, bot: Bot, state: FSMContext, request: Request):
     await state.update_data(comment=message.text)
     user_data = await state.get_data()
-    next_id = await request.get_next_order_id()
     name = user_data.get('name')
     phone = user_data.get('phone')
     device = user_data.get('device')
@@ -194,11 +178,21 @@ async def get_status(message: Message, bot: Bot, state: FSMContext, request: Req
     comment = user_data.get('comment')
     status = user_data.get('status')
 
+    order_id = await request.add_data(name=name,
+                                      phone=phone,
+                                      device=device,
+                                      problem=problem,
+                                      status=status)
+
+    editor = message.from_user.first_name
+    await request.add_comments(order_id=order_id,
+                               comment=comment,
+                               editor=editor)
 
     await message.answer(text=f'{message.from_user.first_name}, Заказ успешно создан', reply_markup=inline_keyboard_start())
 
     message_group = f'{message.from_user.first_name} Создал новый заказ!\r\n' \
-                    f'Заказ: <b>№{next_id}</b>\r\n' \
+                    f'Заказ: <b>№{order_id}</b>\r\n' \
                     f'Имя: {name}\r\n' \
                     f'Контакты: {phone}\r\n' \
                     f'Устройство: {device}\r\n'\
@@ -206,23 +200,8 @@ async def get_status(message: Message, bot: Bot, state: FSMContext, request: Req
                     f'Статус заказа: {status}\r\n' \
                     f'Комментарий: {comment}'
 
-
-    # for admin_id in ADMIN_IDS:
     await bot.send_message(chat_id=GROUP_ID, text=message_group)
-
     await state.clear()
-
-    await request.add_data(name=name,
-                           phone=phone,
-                           device=device,
-                           problem=problem,
-                           status=status)
-
-
-    editor = message.from_user.first_name
-    await request.add_comments(order_id=next_id,
-                               comment=comment,
-                               editor=editor)
 
 
 
@@ -230,14 +209,14 @@ async def get_status(message: Message, bot: Bot, state: FSMContext, request: Req
 
 
 @router.callback_query(F.data == 'Edit')
-async def get_id(call: CallbackQuery, state: FSMContext):
+async def get_id_to_edit(call: CallbackQuery, state: FSMContext):
     await call.answer()
     await call.message.answer(f'Введи номер заказа для изменения')
     await state.set_state(EditData.GET_ID)
 
 
 @router.message(StateFilter(EditData.GET_ID))
-async def give_data(message: Message, state: FSMContext, request: Request):
+async def give_data_to_edit(message: Message, state: FSMContext, request: Request):
     await state.update_data(order_id=message.text)
     data = await state.get_data()
     order_id = data.get('order_id')
@@ -259,7 +238,7 @@ async def give_data(message: Message, state: FSMContext, request: Request):
 
 
 @router.callback_query(F.data == 'Confirm')
-async def give_data(call: CallbackQuery, state: FSMContext, request: Request):
+async def give_data_to_confirm_edit(call: CallbackQuery, state: FSMContext, request: Request):
     await call.answer()
     data = await state.get_data()
     order_id = data.get('order_id')
@@ -291,45 +270,7 @@ async def give_data(call: CallbackQuery, state: FSMContext, request: Request):
         await call.message.answer(f"Нужно выбрать пункт")
 
 
-
-
-# @router.message(StateFilter(EditData.GET_ID))
-# async def give_data(message: Message, state: FSMContext, request: Request):
-#     await state.update_data(order_id=message.text)
-#     data = await state.get_data()
-#     order_id = data.get('order_id')
-#     id = await request.get_order(id=order_id)
-#     order_id = await request.get_comments(order_id=order_id)
-#     if id:
-#         if order_id:
-#             comments_text = "\n\n".join(
-#                 f"<b>{c['editor']}</b> в <u>{c['created_at']}</u>:\n   {c['comment']}"
-#                 for c in order_id
-#             )
-#         else:
-#             comments_text = "Комментариев пока нет."
-#
-#         await message.answer(
-#             f"Заказ:   <b>№{id['id']}</b> от {id['created_at']}\n"
-#             f"Имя:  <b>{id['name']}</b>\n"
-#             f"Контакты:   {id['phone']}\n"
-#             f"Устройство:    <b>{id['device']}</b>\n"
-#             f"Описание проблемы: \n   <b>{id['problem']}</b>\n\n"
-#             f"Статус заказа:    <b>{id['status']}</b>\n\n"
-#             f"<b>Комментарии:</b>\n{comments_text}\n\n"
-#             f"Подтвердите изменение заказа",
-#             reply_markup=inline_keyboard_confirm_edit_data()
-#         )
-#
-#         await state.set_state(EditData.GIVE_DATA)
-#     else:
-#         await message.answer(f"Заказ под таким номером не существует")
-
-
-# @router.callback_query(F.data == 'Confirm')
-# async def get_history_type(call: CallbackQuery, state: FSMContext):
-#     await call.answer()
-#     await call.message.edit_text('Ввыберите метод поиска', reply_markup=inline_keyboard_history())
+##################################################################################################################
 
 
 #1
@@ -350,6 +291,7 @@ async def confirm_edit_name(message: Message, state: FSMContext, request: Reques
 
     await request.edit_name(name=edited_name, id=order_id)
     await message.answer(f'Данные успешно изменены!', reply_markup=inline_keyboard_start())
+    await state.clear()
 
 #2
 
@@ -369,6 +311,7 @@ async def confirm_edit_phone(message: Message, state: FSMContext, request: Reque
 
     await request.edit_phone(phone=edited_phone, id=order_id)
     await message.answer(f'Данные успешно изменены!', reply_markup=inline_keyboard_start())
+    await state.clear()
 
 #3
 
@@ -388,6 +331,7 @@ async def confirm_edit_device(message: Message, state: FSMContext, request: Requ
 
     await request.edit_device(device=edited_device, id=order_id)
     await message.answer(f'Данные успешно изменены!', reply_markup=inline_keyboard_start())
+    await state.clear()
 
 #4
 
@@ -407,6 +351,7 @@ async def confirm_edit_problem(message: Message, state: FSMContext, request: Req
 
     await request.edit_problem(problem=edited_problem, id=order_id)
     await message.answer(f'Данные успешно изменены!', reply_markup=inline_keyboard_start())
+    await state.clear()
 
 #5
 
@@ -426,12 +371,13 @@ async def confirm_edit_comment(message: Message, state: FSMContext, request: Req
     editor = message.from_user.first_name
     await request.add_comments(order_id=order_id, comment=added_comment, editor=editor)
     await message.answer(f'Данные успешно добавлены', reply_markup=inline_keyboard_start())
+    await state.clear()
 
 
 ###################################################################################################################
 
 @router.callback_query(F.data == 'Finish')
-async def get_id(call: CallbackQuery, state: FSMContext):
+async def get_id_to_finish(call: CallbackQuery, state: FSMContext):
     await call.answer()
     f_msg = await call.message.answer(f'Введи номер заказа для изменения статуса')
     await state.update_data(first_msg_id=f_msg.message_id)
@@ -439,7 +385,7 @@ async def get_id(call: CallbackQuery, state: FSMContext):
 
 
 @router.message(StateFilter(FinishOrder.GET_ID))
-async def give_data(message: Message, state: FSMContext, request: Request):
+async def give_data_to_finish(message: Message, state: FSMContext, request: Request):
     await state.update_data(order_id=message.text)
     data = await state.get_data()
     order_id = data.get('order_id')
@@ -504,7 +450,7 @@ async def get_history_by_id(call: CallbackQuery, state: FSMContext):
     await state.set_state(OrderHistory.ORDER_ID)
 
 @router.message(StateFilter(OrderHistory.ORDER_ID))
-async def give_data(message: Message, state: FSMContext, request: Request):
+async def give_data_history(message: Message, state: FSMContext, request: Request):
     await state.update_data(ord_id=message.text)
     data = await state.get_data()
     ord_id = data.get('ord_id')
@@ -530,6 +476,7 @@ async def give_data(message: Message, state: FSMContext, request: Request):
         )
     else:
         await message.answer(f"Заказ под таким номером не существует", reply_markup=inline_keyboard_find_by_back())
+    await state.clear()
 
 
 @router.callback_query(F.data == 'find_by_name')
@@ -539,7 +486,7 @@ async def get_history_by_name(call: CallbackQuery, state: FSMContext):
     await state.set_state(OrderHistory.ORDER_NAME)
 
 @router.message(StateFilter(OrderHistory.ORDER_NAME))
-async def give_data(message: Message, state: FSMContext, request: Request):
+async def give_data_history_by_name(message: Message, state: FSMContext, request: Request):
     await state.update_data(client_name=message.text)
     data = await state.get_data()
     cl_name = data.get('client_name')
@@ -551,6 +498,7 @@ async def give_data(message: Message, state: FSMContext, request: Request):
         await message.answer(f'Заказы на имя {cl_name}:\n{text}', reply_markup=inline_keyboard_find_by_id())
     else:
         await message.answer(f"Заказов зарегистрированных на это имя нет", reply_markup=inline_keyboard_find_by_back())
+    await state.clear()
 
 
 @router.callback_query(F.data == 'find_by_phone')
@@ -560,7 +508,7 @@ async def get_history_by_phone(call: CallbackQuery, state: FSMContext):
     await state.set_state(OrderHistory.ORDER_PHONE)
 
 @router.message(StateFilter(OrderHistory.ORDER_PHONE))
-async def give_data(message: Message, state: FSMContext, request: Request):
+async def give_data_history_by_phone(message: Message, state: FSMContext, request: Request):
     await state.update_data(client_phone=message.text)
     data = await state.get_data()
     cl_phone = data.get('client_phone')
@@ -573,8 +521,101 @@ async def give_data(message: Message, state: FSMContext, request: Request):
         await message.answer(f'Найденные заказы:\n{text}', reply_markup=inline_keyboard_find_by_id())
     else:
         await message.answer(f"Ничего не найдено", reply_markup=inline_keyboard_find_by_back())
+    await state.clear()
 
 
+
+#######################################################################################################################
+# Добавить старый заказ
+
+@router.callback_query(F.data == 'OldOrder')
+async def old_order_get_id(call: CallbackQuery, state: FSMContext):
+    await call.answer()
+    await call.message.answer('Введите номер старого заказа:')
+    await state.set_state(AddOldOrder.GET_ID)
+
+
+@router.message(StateFilter(AddOldOrder.GET_ID))
+async def old_order_check_id(message: Message, state: FSMContext, request: Request):
+    order_id = message.text
+    if not order_id.isdigit():
+        await message.answer('Номер заказа должен быть числом. Попробуйте ещё раз:')
+        return
+    existing = await request.get_order(id=int(order_id))
+    if existing:
+        await message.answer(f'Заказ с номером {order_id} уже существует. Введите другой номер:')
+        return
+    await state.update_data(old_order_id=int(order_id))
+    await message.answer(f'Заказ <b>№{order_id}</b>\n\nВведите имя клиента:')
+    await state.set_state(AddOldOrder.GET_NAME)
+
+
+@router.message(StateFilter(AddOldOrder.GET_NAME))
+async def old_order_get_phone(message: Message, state: FSMContext):
+    await state.update_data(name=message.text)
+    await message.answer('Введите контактные данные клиента')
+    await state.set_state(AddOldOrder.GET_PHONE)
+
+
+@router.message(StateFilter(AddOldOrder.GET_PHONE))
+async def old_order_get_device(message: Message, state: FSMContext):
+    await state.update_data(phone=message.text)
+    await message.answer('Введите наименование устройства')
+    await state.set_state(AddOldOrder.GET_DEVICE)
+
+
+@router.message(StateFilter(AddOldOrder.GET_DEVICE))
+async def old_order_get_problem(message: Message, state: FSMContext):
+    await state.update_data(device=message.text)
+    await message.answer('Опишите проблему')
+    await state.set_state(AddOldOrder.GET_PROBLEM)
+
+
+@router.message(StateFilter(AddOldOrder.GET_PROBLEM))
+async def old_order_get_status(message: Message, state: FSMContext):
+    await state.update_data(problem=message.text)
+    await message.answer('Выберите статус заказа', reply_markup=reply_keyboard_status())
+    await state.set_state(AddOldOrder.GET_STATUS)
+
+
+@router.message(StateFilter(AddOldOrder.GET_STATUS))
+async def old_order_get_comments(message: Message, state: FSMContext):
+    await state.update_data(status=message.text)
+    await message.answer('Добавьте комментарий')
+    await state.set_state(AddOldOrder.GET_COMMENTS)
+
+
+@router.message(StateFilter(AddOldOrder.GET_COMMENTS))
+async def old_order_save(message: Message, bot: Bot, state: FSMContext, request: Request):
+    await state.update_data(comment=message.text)
+    user_data = await state.get_data()
+    order_id = user_data.get('old_order_id')
+    name = user_data.get('name')
+    phone = user_data.get('phone')
+    device = user_data.get('device')
+    problem = user_data.get('problem')
+    status = user_data.get('status')
+    comment = user_data.get('comment')
+
+    await request.add_old_order(id=order_id, name=name, phone=phone, device=device, problem=problem, status=status)
+    await request.sync_order_sequence()
+
+    editor = message.from_user.first_name
+    await request.add_comments(order_id=order_id, comment=comment, editor=editor)
+
+    await message.answer(f'Старый заказ <b>№{order_id}</b> успешно добавлен!', reply_markup=inline_keyboard_start())
+
+    message_group = f'{message.from_user.first_name} добавил старый заказ!\r\n' \
+                    f'Заказ: <b>№{order_id}</b>\r\n' \
+                    f'Имя: {name}\r\n' \
+                    f'Контакты: {phone}\r\n' \
+                    f'Устройство: {device}\r\n' \
+                    f'Описание проблемы: {problem}\r\n' \
+                    f'Статус заказа: {status}\r\n' \
+                    f'Комментарий: {comment}'
+
+    await bot.send_message(chat_id=GROUP_ID, text=message_group)
+    await state.clear()
 
 
 #########################################################################################################################################################

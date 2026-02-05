@@ -30,11 +30,11 @@ async def create_db():
                 """
                 CREATE TABLE IF NOT EXISTS orders (
                     id SERIAL PRIMARY KEY,
-                    name VARCHAR(50),
-                    phone VARCHAR(50),
-                    device VARCHAR(50),
-                    problem VARCHAR(50),
-                    status VARCHAR(50),
+                    name TEXT,
+                    phone TEXT,
+                    device TEXT,
+                    problem TEXT,
+                    status TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 """

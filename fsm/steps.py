@@ -33,6 +33,16 @@ class OrderHistory(StatesGroup):
     ORDER_PHONE = State()
 
 
+class AddOldOrder(StatesGroup):
+    GET_ID = State()
+    GET_NAME = State()
+    GET_PHONE = State()
+    GET_DEVICE = State()
+    GET_PROBLEM = State()
+    GET_STATUS = State()
+    GET_COMMENTS = State()
+
+
 class ClientSteps(StatesGroup):
     GET_ID = State()
     GET_NAME = State()
