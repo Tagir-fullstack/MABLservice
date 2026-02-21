@@ -4,6 +4,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 def inline_keyboard_start():
     builder = InlineKeyboardBuilder()
     builder.button(text='🟢Создать заказ',   callback_data='Create')
+    builder.button(text='📋Добавить старый заказ', callback_data='OldOrder')
     builder.button(text='✍️Изменить данные', callback_data='Edit')
     builder.button(text='♻ Обновить статус', callback_data='Finish')
     builder.button(text='📝️История заказов', callback_data='History')
